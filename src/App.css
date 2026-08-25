@@ -1,0 +1,256 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #e5e7eb;
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 30%),
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 25%),
+    #0b1120;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  color: #93c5fd;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+}
+
+.subtitle {
+  margin: 0.5rem 0 0;
+  color: #94a3b8;
+}
+
+.hero-meta {
+  text-align: right;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.status-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+}
+
+.status-dot.online {
+  background: #22c55e;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.8);
+}
+
+.status-dot.offline {
+  background: #ef4444;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
+}
+
+.updated-at {
+  margin: 0.75rem 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.alert,
+.loading {
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  margin-bottom: 1.5rem;
+}
+
+.alert {
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+}
+
+.card.wide {
+  grid-column: 1 / -1;
+}
+
+.card h2 {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+  color: #bfdbfe;
+}
+
+.metric-row,
+.storage-header,
+.network-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.metric-row + .metric-row,
+.storage-item + .storage-item,
+.network-item + .network-item {
+  margin-top: 0.65rem;
+}
+
+.metric-label {
+  color: #94a3b8;
+}
+
+.metric-value {
+  text-align: right;
+  color: #f8fafc;
+}
+
+.progress-block + .progress-block,
+.progress-block + .metric-row,
+.metric-row + .progress-block {
+  margin-top: 0.9rem;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.45rem;
+  font-size: 0.92rem;
+}
+
+.progress-track {
+  height: 0.65rem;
+  border-radius: 999px;
+  background: rgba(30, 41, 59, 0.95);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.35s ease;
+}
+
+.progress-fill.healthy {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.progress-fill.warning {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.progress-fill.critical {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.core-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.core-chip {
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.85);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.core-chip strong {
+  font-size: 1rem;
+}
+
+.storage-item,
+.network-list,
+.network-stats,
+.sensor-list {
+  margin-top: 0.75rem;
+}
+
+.storage-header {
+  margin-bottom: 0.5rem;
+}
+
+.storage-header span,
+.network-item span {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.network-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.network-item {
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.75);
+}
+
+.muted {
+  margin: 0;
+  color: #64748b;
+}
+
+@media (max-width: 720px) {
+  .hero {
+    flex-direction: column;
+  }
+
+  .hero-meta {
+    text-align: left;
+  }
+}
