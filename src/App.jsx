@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-const POLL_INTERVAL_MS = 3000;
+const POLL_INTERVAL_MS = 60000;
 const REQUEST_TIMEOUT_MS = 30000;
 
 function formatPercent(value) {
