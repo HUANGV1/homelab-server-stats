@@ -13,11 +13,6 @@ function formatSpeed(value) {
   return `${value.toFixed(2)} GHz`;
 }
 
-function formatTemp(value) {
-  if (value == null || Number.isNaN(value)) return 'N/A';
-  return `${value.toFixed(1)}°C`;
-}
-
 function ProgressBar({ value, label, detail }) {
   const percent = value == null ? 0 : Math.min(Math.max(value, 0), 100);
   const tone =
@@ -194,55 +189,6 @@ function App() {
               ))
             ) : (
               <p className="muted">No storage data available.</p>
-            )}
-          </StatCard>
-
-          <StatCard title="Temperature">
-            <MetricRow label="CPU" value={formatTemp(stats?.temperatures?.main)} />
-            <MetricRow label="Max Sensor" value={formatTemp(stats?.temperatures?.max)} />
-            {stats?.temperatures?.sensors?.length ? (
-              <div className="sensor-list">
-                {stats.temperatures.sensors.map((sensor) => (
-                  <MetricRow
-                    key={sensor.label}
-                    label={sensor.label}
-                    value={formatTemp(sensor.value)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="muted">
-                {stats?.optionalProbes?.temperature?.enabled === false
-                  ? `Temperature probing disabled: ${stats.optionalProbes.temperature.reason}`
-                  : 'Temperature sensors not exposed on this host.'}
-              </p>
-            )}
-          </StatCard>
-
-          <StatCard title="GPU">
-            {stats?.gpu ? (
-              <>
-                <MetricRow label="Model" value={`${stats.gpu.vendor} ${stats.gpu.model}`} />
-                <MetricRow label="VRAM" value={stats.gpu.vram ? `${stats.gpu.vram} MB` : 'N/A'} />
-                <MetricRow label="Driver" value={stats.gpu.driverVersion} />
-                <MetricRow label="GPU Temp" value={formatTemp(stats.gpu.temperatureGpu)} />
-                <ProgressBar
-                  label="GPU Utilization"
-                  value={stats.gpu.utilizationGpu}
-                  detail={formatPercent(stats.gpu.utilizationGpu)}
-                />
-                <ProgressBar
-                  label="VRAM Utilization"
-                  value={stats.gpu.utilizationMemory}
-                  detail={formatPercent(stats.gpu.utilizationMemory)}
-                />
-              </>
-            ) : (
-              <p className="muted">
-                {stats?.optionalProbes?.gpu?.enabled === false
-                  ? `GPU probing disabled: ${stats.optionalProbes.gpu.reason}`
-                  : 'No GPU detected or metrics unavailable.'}
-              </p>
             )}
           </StatCard>
 

@@ -17,10 +17,6 @@ const STATS_REFRESH_INTERVAL_MS = Number(process.env.STATS_REFRESH_INTERVAL_MS |
 let statsCache = null;
 let statsError = null;
 let statsRefreshing = false;
-const optionalProbes = {
-  temperature: { enabled: true, reason: null },
-  gpu: { enabled: true, reason: null },
-};
 
 function formatBytes(bytes) {
   if (bytes == null || Number.isNaN(bytes)) return 'N/A';
@@ -74,38 +70,6 @@ async function withMetricTimeout(label, promise, fallback) {
   }
 }
 
-function pickPrimaryGpu(gpus) {
-  if (!Array.isArray(gpus) || gpus.length === 0) return null;
-  return gpus.find((gpu) => gpu.type === 'NVIDIA' || gpu.type === 'AMD') || gpus[0];
-}
-
-function disableOptionalProbe(name, reason) {
-  if (!optionalProbes[name]?.enabled) return;
-  optionalProbes[name] = { enabled: false, reason };
-  console.warn(`${name} probe disabled: ${reason}`);
-}
-
-function hasTemperatureData(temps) {
-  return (
-    safeNumber(temps?.main) != null ||
-    safeNumber(temps?.max) != null ||
-    summarizeTemperatures(temps).length > 0
-  );
-}
-
-function hasGpuData(graphics) {
-  return asArray(graphics?.controllers).some((controller) => {
-    return controller?.model || controller?.vendor || controller?.name;
-  });
-}
-
-function summarizeTemperatures(temps) {
-  if (temps?.main == null || typeof temps.main !== 'object') return [];
-  return Object.entries(temps.main)
-    .filter(([, value]) => typeof value === 'number')
-    .map(([label, value]) => ({ label, value }));
-}
-
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
@@ -142,13 +106,6 @@ function createUnavailableStats(message = 'Stats are still warming up') {
       availableFormatted: 'N/A',
     },
     storage: [],
-    temperatures: {
-      main: null,
-      max: null,
-      sensors: [],
-    },
-    gpu: null,
-    optionalProbes,
     network: {
       interfaces: [],
       stats: [],
@@ -171,23 +128,9 @@ async function collectStats() {
       avgLoad: null,
       cpus: [],
     });
-    let cpuTemp = { main: null, cores: [], max: null };
-    if (optionalProbes.temperature.enabled) {
-      cpuTemp = await withMetricTimeout('temperature', si.cpuTemperature(), cpuTemp);
-      if (!hasTemperatureData(cpuTemp)) {
-        disableOptionalProbe('temperature', 'no temperature sensors returned data');
-      }
-    }
     const mem = await withMetricTimeout('memory', si.mem(), {});
     const fsSize = await withMetricTimeout('storage', si.fsSize(), []);
     const fsStats = await withMetricTimeout('storage stats', si.fsStats(), []);
-    let graphics = { controllers: [], displays: [] };
-    if (optionalProbes.gpu.enabled) {
-      graphics = await withMetricTimeout('graphics', si.graphics(), graphics);
-      if (!hasGpuData(graphics)) {
-        disableOptionalProbe('gpu', 'no GPU controllers returned data');
-      }
-    }
     const networkInterfaces = await withMetricTimeout(
       'network interfaces',
       si.networkInterfaces(),
@@ -202,7 +145,6 @@ async function collectStats() {
     const diskStats = asArray(fsStats);
     const interfaces = asArray(networkInterfaces);
     const traffic = asArray(networkStats);
-    const primaryGpu = pickPrimaryGpu(graphics.controllers);
     const activeInterfaces = interfaces.filter(
       (iface) => iface.operstate === 'up' && !iface.internal && iface.ip4
     );
@@ -257,27 +199,6 @@ async function collectStats() {
           writeBytesPerSec: safeNumber(statsForMount?.wx_sec),
         };
       }),
-      temperatures: {
-        main: safeNumber(cpuTemp.main),
-        max: safeNumber(cpuTemp.max),
-        sensors: summarizeTemperatures(cpuTemp),
-      },
-      gpu: primaryGpu
-        ? {
-            vendor: primaryGpu.vendor,
-            model: primaryGpu.model,
-            vram: primaryGpu.vram,
-            vramDynamic: primaryGpu.vramDynamic,
-            driverVersion: primaryGpu.driverVersion,
-            temperatureGpu: safeNumber(primaryGpu.temperatureGpu),
-            utilizationGpu: safeNumber(primaryGpu.utilizationGpu),
-            utilizationMemory: safeNumber(primaryGpu.utilizationMemory),
-            memoryTotal: primaryGpu.memoryTotal,
-            memoryUsed: primaryGpu.memoryUsed,
-            memoryFree: primaryGpu.memoryFree,
-          }
-        : null,
-      optionalProbes,
       network: {
         interfaces: activeInterfaces.map((iface) => ({
           iface: iface.iface,

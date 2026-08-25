@@ -7,8 +7,6 @@ A lightweight React dashboard with a local Node/Express API for monitoring the m
 - CPU load, cores, and speed
 - RAM usage
 - Disk/storage usage and IO rates
-- CPU/GPU temperatures when exposed by the host
-- GPU info and utilization when available
 - Network interfaces and traffic
 - System uptime and host details
 
@@ -130,7 +128,3 @@ This app has no authentication and exposes host metrics. Keep it on trusted netw
 - `GET /api/health` - health check
 - `GET /api/stats` - current machine stats JSON payload
 
-## Notes
-
-- GPU and temperature data depend on OS, drivers, and hardware support.
-- Some Windows hosts expose limited sensor data compared to Linux.
