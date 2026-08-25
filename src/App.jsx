@@ -121,6 +121,9 @@ function App() {
       {error && (
         <div className="alert">
           Could not reach the stats API: {error}. Make sure the backend is running on port 3000.
+          {window.location.port === '5173'
+            ? ' If you are on the server machine, run "npm run dev" and check the server terminal for errors.'
+            : ' For remote access over Tailscale, use "npm run serve" and open port 3000 instead of 5173.'}
         </div>
       )}
 

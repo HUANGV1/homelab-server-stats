@@ -17,6 +17,66 @@ A lightweight React dashboard with a local Node/Express API for monitoring the m
 - Node.js 18+
 - npm
 
+## Server / Tailscale Setup
+
+For a homelab server, use **production mode** (one port, works over Tailscale):
+
+```bash
+git clone https://github.com/HUANGV1/homelab-server-stats.git
+cd homelab-server-stats
+npm install
+npm run serve
+```
+
+Then open from any device on your tailnet:
+
+```text
+http://<tailscale-ip>:3000
+```
+
+Get the Tailscale IP on the server with:
+
+```bash
+tailscale ip -4
+```
+
+### Why not `npm run dev` on the server?
+
+`npm run dev` runs two processes:
+- frontend on port **5173**
+- API on port **3000**
+
+That is fine for local testing on the server itself, but for Tailscale remote access, production mode is simpler because everything is served on port 3000.
+
+If you do use dev mode, open `http://localhost:5173` on the server (not port 3000).
+
+## Troubleshooting
+
+**"Could not reach the stats API"**
+
+1. Make sure dependencies are installed:
+   ```bash
+   npm install
+   ```
+2. Check whether the API is running:
+   ```bash
+   curl http://127.0.0.1:3000/api/health
+   ```
+   You should see `{"ok":true,...}`.
+3. If port 3000 is already in use, either stop the other process or run on another port:
+   ```bash
+   PORT=3001 npm start
+   ```
+4. For Tailscale access, prefer:
+   ```bash
+   npm run serve
+   ```
+   and use port **3000**, not 5173.
+
+**First stats load is slow**
+
+On some Windows/Linux hosts, the first `/api/stats` request can take 15-30 seconds while hardware info is collected. Wait for it once; later refreshes are faster.
+
 ## Development
 
 Install dependencies:

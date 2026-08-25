@@ -211,6 +211,17 @@ if (serveFrontend) {
   app.get('*', (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
+} else {
+  app.get('/', (_req, res) => {
+    res.type('text/plain').send(
+      [
+        'Server stats API is running.',
+        '',
+        'Dev mode: run "npm run dev" and open http://localhost:5173',
+        'Production: run "npm run serve" and open http://<server-ip>:3000',
+      ].join('\n')
+    );
+  });
 }
 
 app.listen(PORT, '0.0.0.0', () => {
