@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 const POLL_INTERVAL_MS = 3000;
+const REQUEST_TIMEOUT_MS = 30000;
 
 function formatPercent(value) {
   if (value == null || Number.isNaN(value)) return 'N/A';
@@ -60,18 +61,30 @@ function App() {
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const fetchStats = useCallback(async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
     try {
-      const response = await fetch('/api/stats');
+      const response = await fetch('/api/stats', { signal: controller.signal });
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+        throw new Error(
+          data.message || data.error || `Request failed with status ${response.status}`
+        );
       }
-      const data = await response.json();
+
       setStats(data);
       setError(null);
       setLastUpdated(new Date());
     } catch (fetchError) {
-      setError(fetchError.message);
+      const message =
+        fetchError.name === 'AbortError'
+          ? 'Stats request timed out. The backend may be stuck collecting metrics.'
+          : fetchError.message;
+      setError(message);
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   }, []);
@@ -95,7 +108,7 @@ function App() {
         <div className="hero-meta">
           <div className="status-pill">
             <span className={`status-dot ${error ? 'offline' : 'online'}`} />
-            {error ? 'Disconnected' : 'Live'}
+            {error ? 'Disconnected' : loading && !stats ? 'Connecting' : 'Live'}
           </div>
           <p className="updated-at">
             {lastUpdated

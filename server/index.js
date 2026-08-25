@@ -40,13 +40,17 @@ function safeNumber(value, fallback = null) {
   return typeof value === 'number' && !Number.isNaN(value) ? value : fallback;
 }
 
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function pickPrimaryGpu(gpus) {
   if (!Array.isArray(gpus) || gpus.length === 0) return null;
   return gpus.find((gpu) => gpu.type === 'NVIDIA' || gpu.type === 'AMD') || gpus[0];
 }
 
 function summarizeTemperatures(temps) {
-  if (!temps?.main) return [];
+  if (temps?.main == null || typeof temps.main !== 'object') return [];
   return Object.entries(temps.main)
     .filter(([, value]) => typeof value === 'number')
     .map(([label, value]) => ({ label, value }));
@@ -86,8 +90,12 @@ app.get('/api/stats', async (_req, res) => {
       si.system(),
     ]);
 
+    const disks = asArray(fsSize);
+    const diskStats = asArray(fsStats);
+    const interfaces = asArray(networkInterfaces);
+    const traffic = asArray(networkStats);
     const primaryGpu = pickPrimaryGpu(graphics.controllers);
-    const activeInterfaces = networkInterfaces.filter(
+    const activeInterfaces = interfaces.filter(
       (iface) => iface.operstate === 'up' && !iface.internal && iface.ip4
     );
 
@@ -122,8 +130,7 @@ app.get('/api/stats', async (_req, res) => {
         usedFormatted: formatBytes(mem.used),
         availableFormatted: formatBytes(mem.available),
       },
-      storage: fsSize.map((disk) => {
-        const diskStats = Array.isArray(fsStats) ? fsStats : [];
+      storage: disks.map((disk) => {
         const statsForMount = diskStats.find(
           (entry) => entry.fs === disk.fs || entry.mount === disk.mount
         );
@@ -171,7 +178,7 @@ app.get('/api/stats', async (_req, res) => {
           speedMbps: iface.speed,
           type: iface.type,
         })),
-        stats: networkStats
+        stats: traffic
           .filter((entry) => entry.operstate === 'up')
           .map((entry) => ({
             iface: entry.iface,
