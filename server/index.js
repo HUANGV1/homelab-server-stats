@@ -17,6 +17,10 @@ const STATS_REFRESH_INTERVAL_MS = Number(process.env.STATS_REFRESH_INTERVAL_MS |
 let statsCache = null;
 let statsError = null;
 let statsRefreshing = false;
+const optionalProbes = {
+  temperature: { enabled: true, reason: null },
+  gpu: { enabled: true, reason: null },
+};
 
 function formatBytes(bytes) {
   if (bytes == null || Number.isNaN(bytes)) return 'N/A';
@@ -75,6 +79,26 @@ function pickPrimaryGpu(gpus) {
   return gpus.find((gpu) => gpu.type === 'NVIDIA' || gpu.type === 'AMD') || gpus[0];
 }
 
+function disableOptionalProbe(name, reason) {
+  if (!optionalProbes[name]?.enabled) return;
+  optionalProbes[name] = { enabled: false, reason };
+  console.warn(`${name} probe disabled: ${reason}`);
+}
+
+function hasTemperatureData(temps) {
+  return (
+    safeNumber(temps?.main) != null ||
+    safeNumber(temps?.max) != null ||
+    summarizeTemperatures(temps).length > 0
+  );
+}
+
+function hasGpuData(graphics) {
+  return asArray(graphics?.controllers).some((controller) => {
+    return controller?.model || controller?.vendor || controller?.name;
+  });
+}
+
 function summarizeTemperatures(temps) {
   if (temps?.main == null || typeof temps.main !== 'object') return [];
   return Object.entries(temps.main)
@@ -124,6 +148,7 @@ function createUnavailableStats(message = 'Stats are still warming up') {
       sensors: [],
     },
     gpu: null,
+    optionalProbes,
     network: {
       interfaces: [],
       stats: [],
@@ -146,18 +171,23 @@ async function collectStats() {
       avgLoad: null,
       cpus: [],
     });
-    const cpuTemp = await withMetricTimeout('temperature', si.cpuTemperature(), {
-      main: null,
-      cores: [],
-      max: null,
-    });
+    let cpuTemp = { main: null, cores: [], max: null };
+    if (optionalProbes.temperature.enabled) {
+      cpuTemp = await withMetricTimeout('temperature', si.cpuTemperature(), cpuTemp);
+      if (!hasTemperatureData(cpuTemp)) {
+        disableOptionalProbe('temperature', 'no temperature sensors returned data');
+      }
+    }
     const mem = await withMetricTimeout('memory', si.mem(), {});
     const fsSize = await withMetricTimeout('storage', si.fsSize(), []);
     const fsStats = await withMetricTimeout('storage stats', si.fsStats(), []);
-    const graphics = await withMetricTimeout('graphics', si.graphics(), {
-      controllers: [],
-      displays: [],
-    });
+    let graphics = { controllers: [], displays: [] };
+    if (optionalProbes.gpu.enabled) {
+      graphics = await withMetricTimeout('graphics', si.graphics(), graphics);
+      if (!hasGpuData(graphics)) {
+        disableOptionalProbe('gpu', 'no GPU controllers returned data');
+      }
+    }
     const networkInterfaces = await withMetricTimeout(
       'network interfaces',
       si.networkInterfaces(),
@@ -247,6 +277,7 @@ async function collectStats() {
             memoryFree: primaryGpu.memoryFree,
           }
         : null,
+      optionalProbes,
       network: {
         interfaces: activeInterfaces.map((iface) => ({
           iface: iface.iface,

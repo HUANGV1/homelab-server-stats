@@ -211,7 +211,11 @@ function App() {
                 ))}
               </div>
             ) : (
-              <p className="muted">Temperature sensors not exposed on this host.</p>
+              <p className="muted">
+                {stats?.optionalProbes?.temperature?.enabled === false
+                  ? `Temperature probing disabled: ${stats.optionalProbes.temperature.reason}`
+                  : 'Temperature sensors not exposed on this host.'}
+              </p>
             )}
           </StatCard>
 
@@ -234,7 +238,11 @@ function App() {
                 />
               </>
             ) : (
-              <p className="muted">No GPU detected or metrics unavailable.</p>
+              <p className="muted">
+                {stats?.optionalProbes?.gpu?.enabled === false
+                  ? `GPU probing disabled: ${stats.optionalProbes.gpu.reason}`
+                  : 'No GPU detected or metrics unavailable.'}
+              </p>
             )}
           </StatCard>
 
