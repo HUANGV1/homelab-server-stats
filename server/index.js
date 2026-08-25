@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 const distPath = path.join(__dirname, '..', 'dist');
 const serveFrontend = fs.existsSync(distPath);
 const METRIC_TIMEOUT_MS = Number(process.env.METRIC_TIMEOUT_MS || 15000);
-const STATS_REFRESH_INTERVAL_MS = Number(process.env.STATS_REFRESH_INTERVAL_MS || 10000);
+const STATS_REFRESH_INTERVAL_MS = Number(process.env.STATS_REFRESH_INTERVAL_MS || 60000);
 
 let statsCache = null;
 let statsError = null;
