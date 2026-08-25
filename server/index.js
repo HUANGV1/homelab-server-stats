@@ -11,6 +11,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const distPath = path.join(__dirname, '..', 'dist');
 const serveFrontend = fs.existsSync(distPath);
+const METRIC_TIMEOUT_MS = 6000;
 
 function formatBytes(bytes) {
   if (bytes == null || Number.isNaN(bytes)) return 'N/A';
@@ -42,6 +43,26 @@ function safeNumber(value, fallback = null) {
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+async function withMetricTimeout(label, promise, fallback) {
+  let timeoutId;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((resolve) => {
+        timeoutId = setTimeout(() => {
+          console.warn(`${label} probe timed out after ${METRIC_TIMEOUT_MS}ms`);
+          resolve(fallback);
+        }, METRIC_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (error) {
+    console.warn(`${label} probe failed: ${error.message}`);
+    return fallback;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function pickPrimaryGpu(gpus) {
@@ -76,18 +97,26 @@ app.get('/api/stats', async (_req, res) => {
       osInfo,
       system,
     ] = await Promise.all([
-      si.cpu(),
-      si.currentLoad().catch(() => ({ currentLoad: null, avgLoad: null, cpus: [] })),
-      si.cpuTemperature().catch(() => ({ main: null, cores: [], max: null })),
-      si.mem(),
-      si.fsSize(),
-      si.fsStats().catch(() => []),
-      si.graphics().catch(() => ({ controllers: [], displays: [] })),
-      si.networkInterfaces().catch(() => []),
-      si.networkStats().catch(() => []),
-      si.time(),
-      si.osInfo(),
-      si.system(),
+      withMetricTimeout('cpu', si.cpu(), {}),
+      withMetricTimeout('cpu load', si.currentLoad(), {
+        currentLoad: null,
+        avgLoad: null,
+        cpus: [],
+      }),
+      withMetricTimeout('temperature', si.cpuTemperature(), {
+        main: null,
+        cores: [],
+        max: null,
+      }),
+      withMetricTimeout('memory', si.mem(), {}),
+      withMetricTimeout('storage', si.fsSize(), []),
+      withMetricTimeout('storage stats', si.fsStats(), []),
+      withMetricTimeout('graphics', si.graphics(), { controllers: [], displays: [] }),
+      withMetricTimeout('network interfaces', si.networkInterfaces(), []),
+      withMetricTimeout('network stats', si.networkStats(), []),
+      withMetricTimeout('time', si.time(), {}),
+      withMetricTimeout('os info', si.osInfo(), {}),
+      withMetricTimeout('system info', si.system(), {}),
     ]);
 
     const disks = asArray(fsSize);
@@ -101,7 +130,7 @@ app.get('/api/stats', async (_req, res) => {
 
     const stats = {
       timestamp: new Date().toISOString(),
-      hostname: osInfo.hostname,
+      hostname: osInfo.hostname || 'Unknown Host',
       platform: `${osInfo.distro || osInfo.platform} ${osInfo.release || ''}`.trim(),
       uptime: {
         seconds: safeNumber(time.uptime),
