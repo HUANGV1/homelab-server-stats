@@ -11,7 +11,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const distPath = path.join(__dirname, '..', 'dist');
 const serveFrontend = fs.existsSync(distPath);
-const METRIC_TIMEOUT_MS = 6000;
+const METRIC_TIMEOUT_MS = Number(process.env.METRIC_TIMEOUT_MS || 15000);
+const STATS_REFRESH_INTERVAL_MS = Number(process.env.STATS_REFRESH_INTERVAL_MS || 10000);
+
+let statsCache = null;
+let statsError = null;
+let statsRefreshing = false;
 
 function formatBytes(bytes) {
   if (bytes == null || Number.isNaN(bytes)) return 'N/A';
@@ -81,43 +86,87 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
 
-app.get('/api/stats', async (_req, res) => {
+function createUnavailableStats(message = 'Stats are still warming up') {
+  return {
+    timestamp: new Date().toISOString(),
+    hostname: 'Unknown Host',
+    platform: process.platform,
+    status: 'warming',
+    message,
+    uptime: {
+      seconds: null,
+      formatted: 'N/A',
+    },
+    cpu: {
+      manufacturer: null,
+      brand: 'Collecting...',
+      cores: null,
+      physicalCores: null,
+      speedGHz: null,
+      loadPercent: null,
+      perCoreLoad: [],
+    },
+    memory: {
+      total: null,
+      used: null,
+      free: null,
+      active: null,
+      available: null,
+      usedPercent: null,
+      totalFormatted: 'N/A',
+      usedFormatted: 'N/A',
+      availableFormatted: 'N/A',
+    },
+    storage: [],
+    temperatures: {
+      main: null,
+      max: null,
+      sensors: [],
+    },
+    gpu: null,
+    network: {
+      interfaces: [],
+      stats: [],
+    },
+    system: {
+      manufacturer: null,
+      model: null,
+      version: null,
+      serial: null,
+    },
+  };
+}
+
+async function collectStats() {
   try {
-    const [
-      cpu,
-      currentLoad,
-      cpuTemp,
-      mem,
-      fsSize,
-      fsStats,
-      graphics,
-      networkInterfaces,
-      networkStats,
-      time,
-      osInfo,
-      system,
-    ] = await Promise.all([
-      withMetricTimeout('cpu', si.cpu(), {}),
-      withMetricTimeout('cpu load', si.currentLoad(), {
-        currentLoad: null,
-        avgLoad: null,
-        cpus: [],
-      }),
-      withMetricTimeout('temperature', si.cpuTemperature(), {
-        main: null,
-        cores: [],
-        max: null,
-      }),
-      withMetricTimeout('memory', si.mem(), {}),
-      withMetricTimeout('storage', si.fsSize(), []),
-      withMetricTimeout('storage stats', si.fsStats(), []),
-      withMetricTimeout('graphics', si.graphics(), { controllers: [], displays: [] }),
-      withMetricTimeout('network interfaces', si.networkInterfaces(), []),
-      withMetricTimeout('network stats', si.networkStats(), []),
-      withMetricTimeout('time', si.time(), {}),
-      withMetricTimeout('os info', si.osInfo(), {}),
-      withMetricTimeout('system info', si.system(), {}),
-    ]);
+    const startedAt = Date.now();
+    const cpu = await withMetricTimeout('cpu', si.cpu(), {});
+    const currentLoad = await withMetricTimeout('cpu load', si.currentLoad(), {
+      currentLoad: null,
+      avgLoad: null,
+      cpus: [],
+    });
+    const cpuTemp = await withMetricTimeout('temperature', si.cpuTemperature(), {
+      main: null,
+      cores: [],
+      max: null,
+    });
+    const mem = await withMetricTimeout('memory', si.mem(), {});
+    const fsSize = await withMetricTimeout('storage', si.fsSize(), []);
+    const fsStats = await withMetricTimeout('storage stats', si.fsStats(), []);
+    const graphics = await withMetricTimeout('graphics', si.graphics(), {
+      controllers: [],
+      displays: [],
+    });
+    const networkInterfaces = await withMetricTimeout(
+      'network interfaces',
+      si.networkInterfaces(),
+      []
+    );
+    const networkStats = await withMetricTimeout('network stats', si.networkStats(), []);
+    const time = await withMetricTimeout('time', si.time(), {});
+    const osInfo = await withMetricTimeout('os info', si.osInfo(), {});
+    const system = await withMetricTimeout('system info', si.system(), {});
 
     const disks = asArray(fsSize);
     const diskStats = asArray(fsStats);
@@ -225,15 +274,48 @@ app.get('/api/stats', async (_req, res) => {
       },
     };
 
-    res.json(stats);
+    statsCache = {
+      ...stats,
+      status: 'ready',
+      refreshDurationMs: Date.now() - startedAt,
+    };
+    statsError = null;
   } catch (error) {
     console.error('Failed to collect stats:', error);
-    res.status(500).json({
-      error: 'Failed to collect system stats',
-      message: error.message,
-    });
+    statsError = error;
+    if (!statsCache) {
+      statsCache = createUnavailableStats(error.message);
+    }
   }
+}
+
+async function refreshStats() {
+  if (statsRefreshing) return;
+  statsRefreshing = true;
+  try {
+    await collectStats();
+  } finally {
+    statsRefreshing = false;
+  }
+}
+
+app.get('/api/stats', (_req, res) => {
+  if (!statsCache && !statsRefreshing) {
+    void refreshStats();
+  }
+
+  res.json({
+    ...(statsCache || createUnavailableStats()),
+    lastError: statsError?.message || null,
+    refreshing: statsRefreshing,
+    refreshIntervalMs: STATS_REFRESH_INTERVAL_MS,
+  });
 });
+
+void refreshStats();
+setInterval(() => {
+  void refreshStats();
+}, STATS_REFRESH_INTERVAL_MS);
 
 if (serveFrontend) {
   app.use(express.static(distPath));
